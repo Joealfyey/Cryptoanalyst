@@ -1,0 +1,145 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Crypto Signal Table</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f4f4f4;
+      margin: 20px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background: #333;
+      color: white;
+    }
+    td[contenteditable="true"] {
+      background-color: #ffffe0;
+    }
+  </style>
+</head>
+<body>
+  <h2>Crypto Price & Buy Zone Signal</h2>
+  <table id="cryptoTable">
+    <thead>
+      <tr>
+        <th>Coin</th>
+        <th>Real Price (USD)</th>
+        <th>Support Low</th>
+        <th>Support High</th>
+        <th>RSI</th>
+        <th>Buy Signal</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Bitcoin</td><td class="price">...</td><td contenteditable="true">57000</td><td contenteditable="true">62000</td><td contenteditable="true">35</td><td class="signal"></td></tr>
+      <tr><td>Ethereum</td><td class="price">...</td><td contenteditable="true">2800</td><td contenteditable="true">3300</td><td contenteditable="true">40</td><td class="signal"></td></tr>
+      <tr><td>Solana</td><td class="price">...</td><td contenteditable="true">120</td><td contenteditable="true">150</td><td contenteditable="true">38</td><td class="signal"></td></tr>
+      <tr><td>Avalanche</td><td class="price">...</td><td contenteditable="true">28</td><td contenteditable="true">38</td><td contenteditable="true">41</td><td class="signal"></td></tr>
+      <tr><td>Bittensor</td><td class="price">...</td><td contenteditable="true">250</td><td contenteditable="true">290</td><td contenteditable="true">45</td><td class="signal"></td></tr>
+      <tr><td>Artificial Superintelligence Alliance</td><td class="price">...</td><td contenteditable="true">0.6</td><td contenteditable="true">0.9</td><td contenteditable="true">47</td><td class="signal"></td></tr>
+      <tr><td>Render</td><td class="price">...</td><td contenteditable="true">7</td><td contenteditable="true">9</td><td contenteditable="true">44</td><td class="signal"></td></tr>
+      <tr><td>SUI</td><td class="price">...</td><td contenteditable="true">0.8</td><td contenteditable="true">1.2</td><td contenteditable="true">42</td><td class="signal"></td></tr>
+      <tr><td>Arweave</td><td class="price">...</td><td contenteditable="true">20</td><td contenteditable="true">28</td><td contenteditable="true">39</td><td class="signal"></td></tr>
+      <tr><td>Ethena</td><td class="price">...</td><td contenteditable="true">0.5</td><td contenteditable="true">0.7</td><td contenteditable="true">50</td><td class="signal"></td></tr>
+      <tr><td>Jupiter</td><td class="price">...</td><td contenteditable="true">0.8</td><td contenteditable="true">1.1</td><td contenteditable="true">46</td><td class="signal"></td></tr>
+    </tbody>
+  </table>
+
+  <script>
+    const coinGeckoIds = {
+      bitcoin: 'bitcoin',
+      ethereum: 'ethereum',
+      solana: 'solana',
+      avalanche: 'avalanche-2',
+      bittensor: 'bittensor',
+      'artificial superintelligence alliance': 'artificial-superintelligence-alliance',
+      render: 'render-token',
+      sui: 'sui',
+      arweave: 'arweave',
+      ethena: 'ethena',
+      jupiter: 'jupiter',
+    };
+
+    function parseFloatCell(cell) {
+      const n = parseFloat(cell.textContent.replace(/,/g, '.'));
+      return isNaN(n) ? null : n;
+    }
+
+    async function updatePricesAndSignals() {
+      const rows = document.querySelectorAll('#cryptoTable tbody tr');
+      const coinNames = Array.from(rows).map(row => row.cells[0].textContent.trim().toLowerCase());
+      const coinIds = coinNames.map(name => coinGeckoIds[name] || name).join(',');
+
+      let priceData = {};
+      try {
+        const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`);
+        priceData = await response.json();
+      } catch (e) {
+        console.error('Gagal fetch data harga dari CoinGecko:', e);
+      }
+
+      for (const row of rows) {
+        const coinName = row.cells[0].textContent.trim().toLowerCase();
+        const coinId = coinGeckoIds[coinName] || coinName;
+        const priceCell = row.querySelector('.price');
+        const supportLowCell = row.cells[2];
+        const supportHighCell = row.cells[3];
+        const rsiCell = row.cells[4];
+        const signalCell = row.querySelector('.signal');
+
+        const price = priceData[coinId]?.usd;
+        if (price !== undefined) {
+          priceCell.textContent = price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+        } else {
+          priceCell.textContent = '--';
+        }
+
+        const priceNum = parseFloat(priceCell.textContent.replace(/,/g, '.'));
+        const low = parseFloatCell(supportLowCell);
+        const high = parseFloatCell(supportHighCell);
+
+        if (priceNum !== null && low !== null && high !== null) {
+          const minSupport = Math.min(low, high);
+          const maxSupport = Math.max(low, high);
+          signalCell.textContent = (priceNum >= minSupport && priceNum <= maxSupport) ? '🟢 BUY ZONE' : '';
+        } else {
+          signalCell.textContent = '';
+        }
+      }
+    }
+
+    function debounce(fn, ms) {
+      let timer;
+      return () => {
+        clearTimeout(timer);
+        timer = setTimeout(fn, ms);
+      };
+    }
+
+    function setupListeners() {
+      const editableCells = document.querySelectorAll('td[contenteditable="true"]');
+      editableCells.forEach(cell => {
+        cell.addEventListener('input', debounce(updatePricesAndSignals, 700));
+      });
+    }
+
+    updatePricesAndSignals();
+    setupListeners();
+    setInterval(updatePricesAndSignals, 300000);
+  </script>
+</body>
+</html>
